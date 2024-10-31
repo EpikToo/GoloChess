@@ -1,68 +1,100 @@
-import { pieceMap, initialSetup } from './pieces.js';
-import { getPossibleMoves } from './moves.js';
-import { gameState } from './game.js';
+import { pieceMap, initialSetup, getPieceColor, getPieceName } from './pieces.js';
 
-const board = document.getElementById('board_grid');
-const coordinateDisplay = document.getElementById('coordinateDisplay');
-let selectedSquare = null;
+class ChessBoard {
+    constructor() {
+        this.boardElement = document.getElementById('board_grid');
+        this.coordinateDisplay = document.getElementById('coordinateDisplay');
+        this.selectedCell = null;
+        this.currentPlayer = 'w'; // Le joueur blanc commence
+        this.board = this.deepCopyBoard(initialSetup);
+        this.setupBoard();
+    }
 
-function initBoard() {
-    for (let y = 8; y >= 1; y--) {
-        for (let x = 1; x <= 8; x++) {
-            const piece = initialSetup[y][x - 1];
-            const square = createSquare(piece);
-            square.className = 'square ' + ((y + x) % 2 === 0 ? 'white' : 'black');
-            square.addEventListener('click', () => onSquareClick(x, y, piece, square));
-            board.appendChild(square);
+    deepCopyBoard(board) {
+        return board.map(row => [...row]);
+    }
+
+    setupBoard() {
+        this.boardElement.innerHTML = '';
+
+        for (let row = 0; row < 8; row++) {
+            for (let col = 0; col < 8; col++) {
+                const cell = document.createElement('div');
+                cell.className = `cell ${(row + col) % 2 === 0 ? 'white' : 'black'}`;
+                cell.dataset.row = row;
+                cell.dataset.col = col;
+
+                // Ajouter la pièce si elle existe
+                const piece = this.board[row][col];
+                if (piece !== '  ') {
+                    const pieceElement = this.createPieceElement(piece);
+                    cell.appendChild(pieceElement);
+                }
+
+                cell.addEventListener('click', (e) => this.handleCellClick(e));
+                this.boardElement.appendChild(cell);
+            }
         }
     }
-    
-    coordinateDisplay.textContent = `Player Color: ${gameState.playerColor}`;
-    console.log("Player color is: " + gameState.playerColor);
-}
 
-function createSquare(piece) {
-    const square = document.createElement('div');
-    square.className = 'square';
-    square.innerHTML = pieceMap[piece];
-    return square;
-}
-
-function onSquareClick(x, y, piece, squareElement) {
-    const coord = `x: ${x}, y: ${y}`;
-    console.log(`Player Color: ${gameState.playerColor}, Case: ${coord}, Piece: ${piece}`);
-    coordinateDisplay.textContent = `Player Color: ${gameState.playerColor}, Case: ${coord}, Piece: ${piece}`;
-
-    if (!gameState.selectedPiece) {
-        handlePieceSelection(x, y, piece, squareElement);
-    } else if (coord === gameState.selectedCoords && piece === gameState.selectedPiece) {
-        handleDeselection(squareElement);
-    } else {
-        handleMove(x, y);
+    createPieceElement(piece) {
+        const img = document.createElement('img');
+        img.src = pieceMap[piece];
+        img.alt = `${piece[0] === 'w' ? 'White' : 'Black'} ${getPieceName(piece[1])}`;
+        img.className = 'chess-piece';
+        return img;
     }
-}
 
-function handlePieceSelection(x, y, piece, squareElement) {
-    if (gameState.isPlayerTurn && piece[0] === gameState.playerColor) {
-        if (selectedSquare) {
-            selectedSquare.classList.remove('selected');
+    handleCellClick(event) {
+        const cell = event.currentTarget;
+        const row = parseInt(cell.dataset.row);
+        const col = parseInt(cell.dataset.col);
+        const piece = this.board[row][col];
+
+        this.coordinateDisplay.textContent = `Clicked: ${String.fromCharCode(65 + col)}${8 - row}`;
+
+        if (!this.selectedCell && piece !== '  ') {
+            if (getPieceColor(piece) === this.currentPlayer) {
+                this.selectedCell = cell;
+                cell.classList.add('selected');
+            }
         }
-        squareElement.classList.add('selected');
-        selectedSquare = squareElement;
-        gameState.setSelectedPiece(piece, `x: ${x}, y: ${y}`);
+        else if (this.selectedCell) {
+            this.movePiece(
+                parseInt(this.selectedCell.dataset.row),
+                parseInt(this.selectedCell.dataset.col),
+                row,
+                col
+            );
+
+            this.selectedCell.classList.remove('selected');
+            this.selectedCell = null;
+        }
+    }
+
+    movePiece(fromRow, fromCol, toRow, toCol) {
+        const piece = this.board[fromRow][fromCol];
+
+        if (this.isValidMove(fromRow, fromCol, toRow, toCol)) {
+            this.board[toRow][toCol] = piece;
+            this.board[fromRow][fromCol] = '  ';
+            this.currentPlayer = this.currentPlayer === 'w' ? 'b' : 'w';
+            this.setupBoard();
+        }
+    }
+
+    isValidMove(fromRow, fromCol, toRow, toCol) {
+        const piece = this.board[fromRow][fromCol];
+        const targetPiece = this.board[toRow][toCol];
+
+        if (targetPiece !== '  ' && getPieceColor(targetPiece) === getPieceColor(piece)) {
+            return false;
+        }
+
+        return true;
     }
 }
 
-function handleDeselection(squareElement) {
-    squareElement.classList.remove('selected');
-    selectedSquare = null;
-    gameState.clearSelection();
-}
-
-function handleMove(toX, toY) {
-    // This will be implemented to handle the actual piece movement
-    // It will use getPossibleMoves to validate the move
-    console.log("Move attempted");
-}
-
-initBoard();
+document.addEventListener('DOMContentLoaded', () => {
+    new ChessBoard();
+});
